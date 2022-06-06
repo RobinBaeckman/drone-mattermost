@@ -10,9 +10,10 @@ pushd $SRC &> /dev/null
 (set -x;
   GO111MODULE=on \
   CGO_ENABLED=0 \
-    go build .
-  docker build -t kenshaw/drone-mattermost:latest .
-  docker push kenshaw/drone-mattermost:latest
+  GOARCH=amd64 \
+  GOOS=linux \
+    go build -ldflags="-w -s" -a .
+  docker buildx build --platform linux/amd64 --push -t robinbaeckman/drone-mattermost:latest --no-cache .
 )
 
 popd &> /dev/null

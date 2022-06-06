@@ -4,6 +4,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -19,13 +21,15 @@ import (
 
 // Plugin implements drone.Plugin to provide the plugin implementation.
 type Plugin struct {
-	URL      string
-	Token    string
-	Team     string
-	Channel  string
-	Template string
-	Replace  string
-	replacer func(string) string
+	URL         string
+	Token       string
+	Team        string
+	Channel     string
+	Template    string
+	Replace     string
+	FilePath    string
+	filecontent string
+	replacer    func(string) string
 }
 
 // New creates the drone mattermost plugin.
@@ -55,6 +59,9 @@ func (p *Plugin) Execute(ctx *cli.Context) error {
 		return ErrMissingTeamOrChannel
 	}
 	if err := p.BuildReplacer(); err != nil {
+		return err
+	}
+	if err := p.FileContent(); err != nil {
 		return err
 	}
 	// execute
@@ -94,12 +101,41 @@ func (p *Plugin) BuildReplacer() error {
 	return nil
 }
 
+// FileContent adds file content from path.
+func (p *Plugin) FileContent() error {
+	if p.FilePath == "" {
+		return nil
+	}
+
+	files, err := ioutil.ReadDir("./")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, f := range files {
+		fmt.Println(f.Name())
+	}
+
+	content, err := ioutil.ReadFile(p.FilePath)
+	if err != nil {
+		return err
+	}
+	p.filecontent = string(content)
+	return nil
+}
+
+type Form struct {
+	Pipeline    drone.Pipeline
+	FileContent string
+}
+
 // CreatePost creates the post.
 func (p *Plugin) CreatePost(pipeline drone.Pipeline, network drone.Network) error {
+	f := Form{Pipeline: pipeline, FileContent: p.filecontent}
 	// replace
 	if p.replacer != nil {
-		pipeline.Commit.Message.Title = p.replacer(pipeline.Commit.Message.Title)
-		pipeline.Commit.Message.Body = p.replacer(pipeline.Commit.Message.Body)
+		f.Pipeline.Commit.Message.Title = p.replacer(pipeline.Commit.Message.Title)
+		f.Pipeline.Commit.Message.Body = p.replacer(pipeline.Commit.Message.Body)
 	}
 	// template
 	template := string(DefaultTemplate)
@@ -107,7 +143,7 @@ func (p *Plugin) CreatePost(pipeline drone.Pipeline, network drone.Network) erro
 		template = p.Template
 	}
 	// render
-	message, err := handlebars.Render(template, pipeline)
+	message, err := handlebars.Render(template, f)
 	if err != nil {
 		return fmt.Errorf("could not render message template: %w", err)
 	}
@@ -192,6 +228,12 @@ func (p *Plugin) Flags() []cli.Flag {
 			Usage:       "mattermost replace",
 			EnvVars:     []string{"MATTERMOST_REPLACE", "PLUGIN_REPLACE"},
 			Destination: &p.Replace,
+		},
+		&cli.StringFlag{
+			Name:        "mattermost.filepath",
+			Usage:       "mattermost file content from filepath",
+			EnvVars:     []string{"MATTERMOST_FILEPATH", "PLUGIN_FILEPATH"},
+			Destination: &p.FilePath,
 		},
 	}
 	return append(flags, urfave.Flags()...)
