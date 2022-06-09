@@ -6,6 +6,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/drone-plugins/drone-plugin-lib v0.4.0
 	github.com/flowchartsman/handlebars/v3 v3.0.1
+	github.com/google/go-cmp v0.5.6
 	github.com/joho/godotenv v1.4.0
 	github.com/mattermost/mattermost-server/v5 v5.39.3
 	github.com/sirupsen/logrus v1.8.1

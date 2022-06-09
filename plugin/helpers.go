@@ -43,6 +43,7 @@ func init() {
 		"uppercase":      strings.ToUpper,
 		"lowercase":      strings.ToLower,
 		"regexReplace":   regexReplace,
+		"index":          index,
 	}
 	for name, f := range sprig.GenericFuncMap() {
 		if !validHelper(f) {
@@ -123,6 +124,10 @@ func uppercaseFirst(s string) string {
 func regexReplace(pattern string, input string, replacement string) string {
 	re := regexp.MustCompile(pattern)
 	return re.ReplaceAllString(input, replacement)
+}
+
+func index(sl []string, i int) string {
+	return sl[i]
 }
 
 func validHelper(f interface{}) bool {

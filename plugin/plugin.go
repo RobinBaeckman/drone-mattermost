@@ -1,12 +1,12 @@
 package plugin
 
 import (
+	"bufio"
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
@@ -21,15 +21,15 @@ import (
 
 // Plugin implements drone.Plugin to provide the plugin implementation.
 type Plugin struct {
-	URL         string
-	Token       string
-	Team        string
-	Channel     string
-	Template    string
-	Replace     string
-	FilePath    string
-	filecontent string
-	replacer    func(string) string
+	URL       string
+	Token     string
+	Team      string
+	Channel   string
+	Template  string
+	Replace   string
+	FilePath  string
+	fileLines []string
+	replacer  func(string) string
 }
 
 // New creates the drone mattermost plugin.
@@ -107,31 +107,38 @@ func (p *Plugin) FileContent() error {
 		return nil
 	}
 
-	files, err := ioutil.ReadDir("./")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, f := range files {
-		fmt.Println(f.Name())
-	}
-
-	content, err := ioutil.ReadFile(p.FilePath)
+	f, err := os.Open(p.FilePath)
 	if err != nil {
 		return err
 	}
-	p.filecontent = string(content)
+	defer f.Close()
+
+	reader := bufio.NewReader(f)
+	lines, err := ReadLines(f, reader)
+
+	p.fileLines = lines
 	return nil
 }
 
+func ReadLines(file *os.File, reader *bufio.Reader) (lines []string, err error) {
+	for {
+		line, _, err := reader.ReadLine()
+		if err != nil || len(line) == 0 {
+			break
+		}
+		lines = append(lines, string(line))
+	}
+	return lines, err
+}
+
 type Form struct {
-	Pipeline    drone.Pipeline
-	FileContent string
+	Pipeline  drone.Pipeline
+	FileLines []string
 }
 
 // CreatePost creates the post.
 func (p *Plugin) CreatePost(pipeline drone.Pipeline, network drone.Network) error {
-	f := Form{Pipeline: pipeline, FileContent: p.filecontent}
+	f := Form{Pipeline: pipeline, FileLines: p.fileLines}
 	// replace
 	if p.replacer != nil {
 		f.Pipeline.Commit.Message.Title = p.replacer(pipeline.Commit.Message.Title)

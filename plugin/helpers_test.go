@@ -23,6 +23,7 @@ import (
 
 	"github.com/drone-plugins/drone-plugin-lib/drone"
 	"github.com/flowchartsman/handlebars/v3"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestToDuration(t *testing.T) {
@@ -102,6 +103,19 @@ func TestRender(t *testing.T) {
 	t.Logf(">>>\n%s\n<<<", strings.TrimSpace(s))
 }
 
+func TestFileLister(t *testing.T) {
+	p := New()
+	p.FilePath = "filetest"
+	if err := p.FileContent(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"first line", "second line", "third line"}
+
+	if !cmp.Equal(want, p.fileLines) {
+		t.Fatal(cmp.Diff(want, p.fileLines))
+	}
+}
+
 func testForm() Form {
 	return Form{
 		Pipeline: drone.Pipeline{
@@ -134,7 +148,7 @@ func testForm() Form {
 				},
 			},
 		},
-		FileContent: "test",
+		FileLines: []string{"changelog", "ticket1, ticket2"},
 	}
 }
 
